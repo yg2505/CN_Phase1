@@ -16,7 +16,7 @@ Both backends provide HTTP endpoints and identify themselves using the `X-Backen
 ## Team Members
 
 - Yashvi Goyal
-- [Team Member Name]
+- Mouli Srivastava
 
 ---
 
