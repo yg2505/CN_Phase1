@@ -24,6 +24,10 @@ def status():
         "status": "ok"
     })
     response.headers["X-Backend"] = "B"
+    response.headers["ETag"] = '"backend-home-v1"'
+
+    if request.if_none_match.contains("backend-home-v1"):
+        return "", 304
     return response
 
 
