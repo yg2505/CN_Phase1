@@ -1,6 +1,163 @@
-# Computer Networks Phase 1 — Backend Servers
+# Computer Networks Project — Phase 1 & Phase 2
 
 ## Project Overview
+
+This repository contains the complete implementation, configurations, evidence documentation, and architecture specifications for both **Phase 1** and **Phase 2** of the Computer Networks project.
+
+- **Phase 1**: Single-host dual-backend load-balanced service using Python Flask and open-source Nginx.
+- **Phase 2**: Multi-host distributed network edge, redundant DNS resolvers (`dnsmasq`), controlled traffic cutover, service isolation via macOS PF firewall, and fault diagnostic protocols.
+
+---
+
+## Team Members
+
+- **Yashvi Goyal**
+- **Mouli Srivastava**
+
+---
+
+## Phase 1 vs. Phase 2: Key Differences
+
+| Architectural Dimension | Phase 1 (Single-Host Baseline) | Phase 2 (Distributed Dual-Host) |
+|---|---|---|
+| **Physical Nodes** | Single MacBook (`localhost` / `127.0.0.1`) | Two physical MacBooks (**Mac A** & **Mac B**) on LAN (`10.7.0.0/16`) |
+| **DNS Resolution** | None / Static loopback (`/etc/hosts`) | Redundant DNS resolvers (`dnsmasq`) on Mac B (Primary) and Mac A (Backup) |
+| **Edge Reverse Proxy** | Local Nginx on Mac A (`localhost:8081`) | Migrated Standby Nginx on Mac B (`10.7.18.87:8081`) proxying across LAN |
+| **Application Backends** | Backend A (`:3001`) and Backend B (`:3002`) on Mac A | Backend A (`:3001`) and Backend B (`:3002`) hosted on Mac A |
+| **Traffic Ingress** | Direct to local Nginx | DNS-driven cutover for `app.my_team.test` to Mac B edge proxy |
+| **Network Security** | Unrestricted local port access | Host perimeter isolation on Mac A using macOS PF firewall (`pfctl`) |
+| **Failure Scope** | Host failure drops entire system | DNS and edge redundancy isolate node-level service faults |
+
+---
+
+## Phase 2 Network Architecture
+
+```mermaid
+flowchart TB
+    subgraph LAN["Local Area Network Subnet (10.7.0.0/16)"]
+        subgraph ClientNode["Client System (Mac A or External)"]
+            ClientApp["Browser / cURL Client"]
+            ClientDNS["System Resolver Stub"]
+        end
+
+        subgraph MacB["Mac B (IP: 10.7.18.87)"]
+            PrimaryDNS["Primary DNS Resolver (dnsmasq)<br/>Port 53 (UDP/TCP)<br/>my_team.test"]
+            StandbyNginx["Standby Edge Nginx<br/>Port 8081<br/>(app.my_team.test)"]
+        end
+
+        subgraph MacA["Mac A (IP: 10.7.5.56)"]
+            BackupDNS["Backup DNS Resolver (dnsmasq)<br/>Port 53 (UDP/TCP)"]
+            OriginalNginx["Original Edge Nginx<br/>Port 8081<br/>(api.my_team.test)"]
+            
+            subgraph Backends["Application Services (Local to Mac A)"]
+                BackendA["Backend A (Flask)<br/>Port 3001<br/>X-Backend: A"]
+                BackendB["Backend B (Flask)<br/>Port 3002<br/>X-Backend: B"]
+            end
+        end
+    end
+
+    %% Resolution Flow
+    ClientDNS -->|"1. Resolve Domain (Port 53)"| PrimaryDNS
+    ClientDNS -.->|"Fallback if Primary Down"| BackupDNS
+
+    %% Traffic Flow
+    ClientApp -->|"2. HTTP GET :8081 (app.my_team.test)"| StandbyNginx
+    StandbyNginx -->|"3. LAN Reverse Proxy to 10.7.5.56:3001"| BackendA
+    StandbyNginx -->|"3. LAN Reverse Proxy to 10.7.5.56:3002"| BackendB
+
+    ClientApp -->|"HTTP GET :8081 (api.my_team.test)"| OriginalNginx
+    OriginalNginx -->|"Proxy loopback"| BackendA
+    OriginalNginx -->|"Proxy loopback"| BackendB
+```
+
+> [!IMPORTANT]
+> **Host Placement Detail**: Both application backends (**Backend A** and **Backend B**) run on **Mac A**. **Mac B** provides the standby Nginx edge reverse proxy and primary DNS resolver. Mac B proxies client requests across the physical LAN to `10.7.5.56:3001` and `10.7.5.56:3002`.
+
+---
+
+## Phase 2 Extensions & Implementation Status
+
+| Extension | Title / Objective | Status | Summary |
+|---|---|:---:|---|
+| **Extension A** | Backup DNS Resolver | **Completed** | Primary `dnsmasq` on Mac B (`10.7.18.87`), backup `dnsmasq` on Mac A (`10.7.5.56`). Client DNS failover verified. |
+| **Extension B** | DNS TTL & Record Change | **Partially Completed** | 30s TTL evaluated using Python `dnslib` caching harness; live cross-browser capture marked inconclusive. |
+| **Extension C** | Service Isolation | **Completed & Rolled Back** | macOS PF firewall anchor `com.local.backend-isolation` restricted LAN access to ports 3001/3002; rules verified and subsequently disabled. |
+| **Extension D** | High Availability Failover | **Previously Demonstrated** | Open-source Nginx passive health checks (`max_fails=1 fail_timeout=10s`, `proxy_next_upstream`) demonstrated in Phase 1. |
+| **Extension E** | Controlled Edge Migration | **Completed** | Standby Nginx on Mac B configured and verified. DNS cutover redirected `app.my_team.test` to Mac B. |
+| **Extension F** | Faculty Troubleshooting Challenge | **Methodology Documented** | Formal challenge skipped; structured 4-tier diagnostic framework established and documented. |
+
+---
+
+## Phase 2 Directory Navigation
+
+- [**Phase 2 Overview**](phase2/README.md)
+- **Architecture Documentation**:
+  - [Network Topology](phase2/architecture/network-topology.md)
+  - [IP Addressing & Interface Specs](phase2/architecture/ip-addressing.md)
+  - [Request Flow & Sequence Diagrams](phase2/architecture/request-flow.md)
+- **Configuration Bundle**:
+  - [Configurations README & Deployment Guide](phase2/configs/README.md)
+  - [Primary DNS Config (Mac B)](phase2/configs/dnsmasq/primary-dnsmasq.conf)
+  - [Backup DNS Config (Mac A)](phase2/configs/dnsmasq/backup-dnsmasq.conf)
+  - [Original Nginx Config (Mac A)](phase2/configs/nginx/original-mac-a-nginx.conf)
+  - [Standby Nginx Config (Mac B)](phase2/configs/nginx/standby-mac-b-nginx.conf)
+  - [macOS PF Firewall Rules](phase2/configs/firewall/pf-backend-isolation.conf) & [Management Script](phase2/configs/firewall/pf-setup.sh)
+- **Evidence Index & Artifacts**:
+  - [Master Evidence Index](phase2/evidence/README.md)
+  - [Extension A Evidence (Backup DNS)](phase2/evidence/backup-dns/README.md)
+  - [Extension B / E4 Evidence (TTL & Caching)](phase2/evidence/ttl-migration/README.md)
+  - [Extension C Evidence (PF Firewall)](phase2/evidence/firewall-isolation/README.md)
+  - [Extension D Evidence (Failover)](phase2/evidence/failover/README.md)
+  - [Extension E Evidence (Edge Migration)](phase2/evidence/edge-migration/README.md)
+  - [Extension F Diagnostic Framework](phase2/evidence/troubleshooting/README.md)
+- **Formal Technical Report**:
+  - [Phase 2 Final Technical Report (20 Sections)](phase2/report/phase2-final-report.md)
+- **Presentation & Evaluation**:
+  - [Slide-by-Slide Presentation Outline](phase2/presentation/presentation-outline.md)
+  - [Final Live Demonstration Script & Viva Q&A](phase2/presentation/demo-script.md)
+
+---
+
+## Quick Verification Commands for Phase 2
+
+### 1. Test DNS Resolution:
+```bash
+# Query primary DNS on Mac B
+dig @10.7.18.87 app.my_team.test +short
+# Expected output: 10.7.18.87
+
+# Query backup DNS on Mac A
+dig @10.7.5.56 api.my_team.test +short
+# Expected output: 10.7.5.56
+```
+
+### 2. Test Edge Migration & Load Balancing on Mac B:
+```bash
+# Query standby Nginx on Mac B (Host header routes to app.my_team.test)
+curl -i http://10.7.18.87:8081/api/status -H "Host: app.my_team.test"
+# Headers received: X-Backend: A or B, X-Proxy-Edge: Mac-B-Standby
+```
+
+### 3. Test Service Isolation (Mac A PF Firewall):
+```bash
+# Enable isolation anchor
+sudo ./phase2/configs/firewall/pf-setup.sh enable
+
+# Test status and counters
+sudo ./phase2/configs/firewall/pf-setup.sh status
+
+# Revert and disable firewall
+sudo ./phase2/configs/firewall/pf-setup.sh disable
+```
+
+---
+---
+
+# Phase 1 Documentation (Preserved Baseline)
+
+## Computer Networks Phase 1 — Backend Servers
+
+### Project Overview
 
 This repository contains the two Flask backend servers developed for the Computer Networks Phase 1 project.
 
@@ -13,14 +170,7 @@ Both backends provide HTTP endpoints and identify themselves using the `X-Backen
 
 ---
 
-## Team Members
-
-- Yashvi Goyal
-- Mouli Srivastava
-
----
-
-## Repository Structure
+### Repository Structure
 
 ```text
 CN_Phase1/
