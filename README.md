@@ -111,7 +111,7 @@ flowchart TB
   - [Extension E Evidence (Edge Migration)](phase2/evidence/edge-migration/README.md)
   - [Extension F Diagnostic Framework](phase2/evidence/troubleshooting/README.md)
 - **Formal Technical Report**:
-  - [Phase 2 Final Technical Report (20 Sections)](phase2/report/phase2-final-report.md)
+  - [Final Project Report (PDF)](report/Private_Network_Service_Platform_Report.pdf)
 - **Presentation & Evaluation**:
   - [Slide-by-Slide Presentation Outline](phase2/presentation/presentation-outline.md)
   - [Final Live Demonstration Script & Viva Q&A](phase2/presentation/demo-script.md)
