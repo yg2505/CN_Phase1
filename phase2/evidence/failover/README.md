@@ -61,8 +61,3 @@ done
 ```
 
 ---
-
-## 3. Required Evidence Artifact
-
-- Terminal log / screen recording from Phase 1 demonstrating uninterrupted response stream during backend shutdown.
-- Placeholder for raw terminal log file: [`failover-test-run.log`](#) (To be attached from Phase 1 demonstration archives).
